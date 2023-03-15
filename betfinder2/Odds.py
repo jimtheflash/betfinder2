@@ -76,7 +76,6 @@ class Odds:
     '''parse_data extracts the data from a specific market from the events_list attribute of an Odds object. Upcoming markets are in scope, but live markets are not.
     Args:
       market: str market to parse'''
-    
     config_subset = self.config['parse_data']
     market_subset = config_subset['markets'][self.sport][market]
     events_list = self.events_list
@@ -91,7 +90,7 @@ class Odds:
         output['matchup'] = event['events'][0]['name']
         if market_type == 'prop':
           selected_offer = [i for i in event['betOffers'] if i['criterion']['label'] == offer_label]
-          output['outcomes'] = selected_offer['outcomes']
+          output['outcomes'] = selected_offer[0]['outcomes']
           return output
       parsed_events = []
       for i in events_list:
@@ -99,7 +98,6 @@ class Odds:
           parsed_events.append(bs_parser(i, market_subset['market_type'], market_subset['offer_label']))
         except:
           pass
-
     elif self.sportsbook == 'csr':
       pass
     elif self.sportsbook == 'dk':
@@ -114,12 +112,13 @@ class Odds:
           subcategory_data = category_data['componentizedOffers'][get_list_index(category_data['componentizedOffers'], 'subcategoryName', subcategory_name)]
           # TODO: finding offers like this is gross - two empty lists doesn't feel like its a reproducible pattern. but finding an object named 'offers' does!
           offers = subcategory_data['offers'][0][0]
+          outcomes = offers['outcomes']
           output['outcomes'] = offers['outcomes']
           return output
       parsed_events = []
       for i in events_list:
         try:
-          parsed_events.append(dk_parser(i, market_subset['market_type'], market_subset['category_name'], market_subset['subcategory_name']))
+          parsed_events = parsed_events.append(dk_parser(i, market_subset['market_type'], market_subset['category_name'], market_subset['subcategory_name']))
         except:
           pass
     elif self.sportsbook == 'fd':
@@ -148,10 +147,29 @@ class Odds:
       pass
     else:
       pass
-      
     self.market = market
-    self.parsed_events = [i for i in parsed_events if i is not None]
-
+    self.parsed_events = parsed_events
+    return self
+  
+  def tidy_data(self):
+    config_subset = self.config['tidy_data']
+    
+    if self.sportsbook == 'br':
+      pass
+    elif self.sportsbook == 'bs':
+      pass
+    elif self.sportsbook == 'csr':
+      pass
+    elif self.sportsbook == 'dk':
+      pass
+    elif self.sportsbook == 'fd':
+      pass
+    elif self.sportsbook == 'mgm':
+      pass
+    elif self.sportsbook == 'pb':
+      pass
+    else:
+      pass
+    
     return self
     
-
