@@ -76,14 +76,19 @@ class Odds:
     '''parse_data extracts the data from a specific market from the events_list attribute of an Odds object. Upcoming markets are in scope, but live markets are not.
     Args:
       market: str market to parse'''
+    
     config_subset = self.config['parse_data']
     market_subset = config_subset['markets'][self.sport][market]
     events_list = self.events_list
-    if self.sportsbook == 'br':
+    parsed_events = []
+    sportsbook = self.sportsbook
+    if sportsbook == 'br':
       pass
-    elif self.sportsbook == 'bs':
+    elif sportsbook == 'bs':
+      
       def bs_parser(event, market_type, offer_label):
-        if event['events'][0]['state'] == 'STARTED':
+        event_state = event['events'][0]['state']
+        if event_state == 'STARTED':
           return None
         output = {}
         output['event_start'] = event['events'][0]['start']
@@ -92,63 +97,76 @@ class Odds:
           selected_offer = [i for i in event['betOffers'] if i['criterion']['label'] == offer_label]
           output['outcomes'] = selected_offer[0]['outcomes']
           return output
-      parsed_events = []
+      
       for i in events_list:
         try:
-          parsed_events.append(bs_parser(i, market_subset['market_type'], market_subset['offer_label']))
+          parsed_event = parsed_events.append(bs_parser(i, market_subset['market_type'], market_subset['offer_label']))
         except:
-          pass
-    elif self.sportsbook == 'csr':
+          continue
+    elif sportsbook == 'csr':
       pass
-    elif self.sportsbook == 'dk':
+    elif sportsbook == 'dk':
+      
       def dk_parser(event, market_type, category_name, subcategory_name):
         if event['event']['eventStatus']['state'] == 'STARTED':
           return None
-        output = {}
-        output['event_start'] = event['event']['startDate']
-        output['matchup'] = event['event']['name']
-        if market_type == 'prop':
-          category_data = event['eventCategories'][get_list_index(event['eventCategories'], 'name', category_name)]
-          subcategory_data = category_data['componentizedOffers'][get_list_index(category_data['componentizedOffers'], 'subcategoryName', subcategory_name)]
-          # TODO: finding offers like this is gross - two empty lists doesn't feel like its a reproducible pattern. but finding an object named 'offers' does!
-          offers = subcategory_data['offers'][0][0]
-          outcomes = offers['outcomes']
-          output['outcomes'] = offers['outcomes']
-          return output
-      parsed_events = []
+        else:
+          output = {}
+          output['event_start'] = event['event']['startDate']
+          output['matchup'] = event['event']['name']
+          if market_type == 'prop':
+            category_data = event['eventCategories'][get_list_index(event['eventCategories'], 'name', category_name)]
+            subcategory_data = category_data['componentizedOffers'][get_list_index(category_data['componentizedOffers'], 'subcategoryName', subcategory_name)]
+            # TODO: finding offers like this is gross - two empty lists doesn't feel like its a reproducible pattern. but finding an object named 'offers' does!
+            offers = subcategory_data['offers'][0][0]
+            outcomes = offers['outcomes']
+            output['outcomes'] = offers['outcomes']
+            return output
+          else:
+            return None
+
       for i in events_list:
         try:
-          parsed_events = parsed_events.append(dk_parser(i, market_subset['market_type'], market_subset['category_name'], market_subset['subcategory_name']))
+          parsed_event = parsed_events.append(dk_parser(i, market_subset['market_type'], market_subset['category_name'], market_subset['subcategory_name']))
         except:
-          pass
-    elif self.sportsbook == 'fd':
+          continue
+    elif sportsbook == 'fd':
+      
       def fd_parser(event, market_type, tab_name, market_name):
-        if event[0]['attachments']['events'][0]['inPlay'] == True:
+        event_id = list(event[0]['attachments']['events'].keys())[0]
+        if event[0]['attachments']['events'][event_id]['inPlay'] == True:
           return None
         output = {}
-        output['event_start'] = event[0]['attachments']['events'][0]['openDate']
-        output['matchup'] = event[0]['attachments']['events'][0]['name']
+        output['event_start'] = event[0]['attachments']['events'][event_id]['openDate']
+        output['matchup'] = event[0]['attachments']['events'][event_id]['name']
         if market_type == 'prop':
-          tab_markets = event[get_list_index(event, 'tab_name', tab_name)]['attachments']['markets']
-          target_market = tab_markets[get_list_index(tab_markets, 'marketName', market_name)]
-          if target_market['marketStatus'] != 'OPEN':
-            return None
-          output['outcomes'] = target_market['runners']
+          tab_markets = event[get_list_index(event, 'tab_name', tab_name)]['attachments']['markets'].values()
+          for market in tab_markets:
+            if market['marketName'] != market_name:
+              continue
+            elif market['marketStatus'] != 'OPEN':
+              continue
+            else:
+              output['outcomes'] = market['runners']
+          
           return output
-      parsed_events = []
+
       for i in events_list:
         try:
-          parsed_events.append(fd_parser(i, market_subset['market_type'], market_subset['tab_name'], market_subset['market_name']))
+          parsed_event = parsed_events.append(fd_parser(i, market_subset['market_type'], market_subset['tab_name'], market_subset['market_name']))
         except:
-          pass
-    elif self.sportsbook == 'mgm':
+          continue
+
+    elif sportsbook == 'mgm':
       pass
-    elif self.sportsbook == 'pb':
+    elif sportsbook == 'pb':
       pass
     else:
-      pass
+      parsed_events = []
+    
     self.market = market
-    self.parsed_events = parsed_events
+    self.parsed_events = [i for i in parsed_events if i is not None]
+    
     return self
   
   def tidy_data(self):
