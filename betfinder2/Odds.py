@@ -1,4 +1,5 @@
 import random, requests, time
+import polars as pl
 
 class Odds:
   '''Odds class is the workhorse of betfinder2, with methods for getting, parsing, and tidying data from several betting markets across a number of sportsbooks.'''
@@ -156,7 +157,6 @@ class Odds:
           parsed_event = parsed_events.append(fd_parser(i, market_subset['market_type'], market_subset['tab_name'], market_subset['market_name']))
         except:
           continue
-
     elif sportsbook == 'mgm':
       pass
     elif sportsbook == 'pb':
@@ -169,9 +169,34 @@ class Odds:
     
     return self
   
-  def tidy_data(self):
-    config_subset = self.config['tidy_data']
+  def tidy_df(self):
+    '''tidy_df extracts the relevant fields from the parsed events and renames them to be consistent across books, and generates a dataFrame with the following columns:
+        
+        - book: Odds object sportsbook
+        - sport: Odds object sport
+        - market: Odds object market
+        - matchup: Odds object matchup for matchups or tournaments, else null
+        - start: the starting date and time for the event
+        - playerid: for bets involving specific players, extracts the book-specific player identifier, else "team" or "game"
+        - teamid: for bets involving a player on a team or a team, the book-specific team identifier, else "game"
+        - overunder: for bets involving an over under, either "over" or "under", else null
+        - line: for bets involving a betting line, the specific line as a number, else null
+        - americanodds: american odds for the bet, can't be null'''
     
+    config_subset = self.config['tidy_df']
+    output = pl.DataFrame(schema={
+        'book':str,
+        'sport':str,
+        'market':str,
+        'matchup':str,
+        'event_start':str,
+        'playerid':str,
+        'teamid':str,
+        'over_under':str,
+        'line':pl.Float32,
+        'american_odds':pl.Float32
+        })
+        
     if self.sportsbook == 'br':
       pass
     elif self.sportsbook == 'bs':
@@ -179,7 +204,44 @@ class Odds:
     elif self.sportsbook == 'csr':
       pass
     elif self.sportsbook == 'dk':
-      pass
+      
+      def dk_df(parsed_event):
+        outcomes_df = pl.DataFrame(parsed_event['outcomes'])
+        
+        try:
+          playerid = outcomes_df['dkPlayerId']
+        except:
+          playerid = None
+        
+        if playerid is not None:
+          teamid = None
+        else:
+          teamid = outcomes_df['label']
+        
+        output_df = pl.DataFrame({
+          'book':None,
+          'sport':None,
+          'market':None,
+          'matchup':parsed_event['matchup'],
+          'event_start':parsed_event['event_start'],
+          'playerid':playerid,
+          'teamid':teamed 
+        })
+        
+        
+      df = pl.DataFrame(data={
+        'book':str,
+        'sport':str,
+        'market':str,
+        'matchup':str,
+        'playerid':str,
+        'teamid':str,
+        'overunder':str,
+        'line':pl.Float32,
+        'americanodds':pl.Float32
+        })
+      
+      
     elif self.sportsbook == 'fd':
       pass
     elif self.sportsbook == 'mgm':
