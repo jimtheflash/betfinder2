@@ -20,6 +20,17 @@ class Odds:
     
     config_subset = self.config['get_data']
     
+    # TODO: figure out wtf this function is doing and why it needs to exist :facepalm:
+    def get_list_index(LIST, key, val):
+      '''Get index or indices of list elements when those elements are dicts with keys containing values matching the val
+      Args:
+        LIST: list
+        key: str key from dict
+        val: something that can be evaluated as a logical'''
+        
+      return next((index for (index, d) in enumerate(LIST) if d[key] == val), None)
+
+    # For each of the sports books, read the config and grab the data for that sport
     # TODO: there's got to be a better way than all this elif nonsense...
     if self.sportsbook == 'br':
       pass
@@ -28,11 +39,12 @@ class Odds:
       all_event_ids = [i['event']['id'] for i in all_events['events']]
       list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i), params = config_subset['event_params']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     elif self.sportsbook == 'csr':
-      all_events = requests.get(config_subset['all_events_stem'][sport]).json()
+      all_events = requests.get(config_subset['all_events_stem'][sport], headers=config_subset['viable_headers']).json()
       all_comps = all_events['competitions']
       all_event_ids = [i['id'] for i in all_comps[get_list_index(all_comps, 'name', config_subset['competition_names'][sport])]['events']]
-      list_of_event_dicts = [requests.get(config_subset['event_stem'] + i).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
+      list_of_event_dicts = [requests.get(config_subset['event_stem'] + i, headers=config_subset['viable_headers']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     elif self.sportsbook == 'dk':
+      # TODO: move the params into the config
       all_events = requests.get(config_subset['all_events_stem'] + str(config_subset['event_groups'][sport]), params = {'format':'json'}).json()
       all_event_ids = [i['eventId'] for i in all_events['eventGroup']['events']]
       list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i)).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
@@ -60,11 +72,24 @@ class Odds:
           del event_params['tab'], tab
         list_of_event_dicts.append(event_output)
     elif self.sportsbook == 'mgm':
-      pass
+      all_events_params = config_subset['all_events_params']
+      sport_val = config_subset['sport_values'][sport]
+      all_events_params.update({'competitionId':sport_val})
+      all_events = requests.get(config_subset['all_events_stem'], params=all_events_params, headers=config_subset['viable_headers']).json()
+      # TODO: fix this nasty 'keep the first element' logic
+      marquee_widget = [i for i in all_events['widgets'] if i['type'] == 'Marquee'][0]
+      fixtures = marquee_widget['payload']['fixtures']
+      fixture_ids = [i['fixture']['id'] for i in fixtures]
+      list_of_event_dicts = []
+      for fid in fixture_ids:
+        event_params = config_subset['event_params']
+        event_params.update({'fixtureIds':fid})
+        event_output = requests.get(config_subset['event_stem'], params=event_params, headers=config_subset['viable_headers']).json()
+        list_of_event_dicts.append(event_output)
     elif self.sportsbook == 'pb':
-      all_events = requests.get(config_subset['all_events_stem']['part1'] + str(config_subset['sport_values'][sport]) + config_subset['all_events_stem']['part2'], params = config_subset['all_events_params']).json()
+      all_events = requests.get(config_subset['all_events_stem']['part1'] + str(config_subset['sport_values'][sport]) + config_subset['all_events_stem']['part2'], params = config_subset['all_events_params'], headers = config_subset['viable_headers']).json()
       all_event_ids = [i['key'] for i in all_events['events']]
-      list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i)).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
+      list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i), headers = config_subset['viable_headers']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     else:
       list_of_event_dicts = []
       
