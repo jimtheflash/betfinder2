@@ -15,5 +15,5 @@ mgm_obj = Odds.Odds('mgm', config=cfg).get_data('mlb')
 pb_obj = Odds.Odds('pb', config=cfg).get_data('mlb')
 
 
-## untested :shrugs:
-# br
+# # broken >:(
+# br_obj = Odds.Odds('br', config=cfg).get_data('mlb')

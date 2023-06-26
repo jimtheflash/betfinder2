@@ -131,6 +131,7 @@ dmypy.json
 # R stuff
 .Rhistory
 .Rproj.user
+.Renviron
 
 # os stuff
 .DS_Store

@@ -34,6 +34,16 @@ class Odds:
     # TODO: there's got to be a better way than all this elif nonsense...
     if self.sportsbook == 'br':
       pass
+      # # TODO: this is broken, see github issues
+      # all_events_params = config_subset['all_events_params']
+      # all_events_params.update({'groupId':config_subset['group_ids'][sport]})
+      # all_events = requests.get(config_subset['all_events_stem'], params=all_events_params, headers=config_subset['viable_headers']).json()
+      # all_event_ids = [i['event']['id'] for i in all_events['events']]
+      # list_of_event_dicts = []
+      # for i in all_event_ids:
+      #   event_params=config_subset['event_params']
+      #   event_params.update({'eventId':i})
+      #   list_of_event_dicts.append(requests.get(config_subset['event_stem'], params=event_params).json())
     elif self.sportsbook == 'bs':
       all_events = requests.get(config_subset['all_events_stem'][sport], params = config_subset['all_events_params']).json()
       all_event_ids = [i['event']['id'] for i in all_events['events']]
