@@ -1,5 +1,15 @@
-import random, requests, time
+import random, re, requests, time
 import polars as pl
+
+# TODO: figure out wtf this function is doing and why it needs to exist :facepalm:
+def get_list_index(LIST, key, val):
+  '''Get index or indices of list elements when those elements are dicts with keys containing values matching the val
+  Args:
+    LIST: list
+    key: str key from dict
+    val: something that can be evaluated as a logical'''
+    
+  return next((index for (index, d) in enumerate(LIST) if d[key] == val), None)
 
 class Odds:
   '''Odds class is the workhorse of betfinder2, with methods for getting, parsing, and tidying data from several betting markets across a number of sportsbooks.'''
@@ -19,20 +29,11 @@ class Odds:
       sleep_max: int maximum number of seconds to sleep between GET calls'''
     
     config_subset = self.config['get_data']
-    
-    # TODO: figure out wtf this function is doing and why it needs to exist :facepalm:
-    def get_list_index(LIST, key, val):
-      '''Get index or indices of list elements when those elements are dicts with keys containing values matching the val
-      Args:
-        LIST: list
-        key: str key from dict
-        val: something that can be evaluated as a logical'''
-        
-      return next((index for (index, d) in enumerate(LIST) if d[key] == val), None)
 
     # For each of the sports books, read the config and grab the data for that sport
     # TODO: there's got to be a better way than all this elif nonsense...
     if self.sportsbook == 'br':
+      
       pass
       # # TODO: this is broken, see github issues
       # all_events_params = config_subset['all_events_params']
@@ -45,9 +46,9 @@ class Odds:
       #   event_params.update({'eventId':i})
       #   list_of_event_dicts.append(requests.get(config_subset['event_stem'], params=event_params).json())
     elif self.sportsbook == 'bs':
-      all_events = requests.get(config_subset['all_events_stem'][sport], params = config_subset['all_events_params']).json()
+      all_events = requests.get(config_subset['all_events_stem'][sport], params=config_subset['all_events_params']).json()
       all_event_ids = [i['event']['id'] for i in all_events['events']]
-      list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i), params = config_subset['event_params']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
+      list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i), params=config_subset['event_params']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     elif self.sportsbook == 'csr':
       all_events = requests.get(config_subset['all_events_stem'][sport], headers=config_subset['viable_headers']).json()
       all_comps = all_events['competitions']
@@ -55,28 +56,30 @@ class Odds:
       list_of_event_dicts = [requests.get(config_subset['event_stem'] + i, headers=config_subset['viable_headers']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     elif self.sportsbook == 'dk':
       # TODO: move the params into the config
-      all_events = requests.get(config_subset['all_events_stem'] + str(config_subset['event_groups'][sport]), params = {'format':'json'}).json()
+      all_events = requests.get(config_subset['all_events_stem'] + str(config_subset['event_groups'][sport]), params={'format':'json'}).json()
       all_event_ids = [i['eventId'] for i in all_events['eventGroup']['events']]
       list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i)).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     elif self.sportsbook == 'fd':
       all_events_params = config_subset['all_events_params']
       all_events_params.update({'customPageId':sport})
-      all_events = requests.get(config_subset['all_events_stem'], params = all_events_params).json()
+      all_events = requests.get(config_subset['all_events_stem'], params=all_events_params).json()
+      ## create list of events, add the main page to it
+      list_of_event_dicts = []
+      list_of_event_dicts.append(all_events)
+      ## iterate through the event ids to get all the active events
       all_event_ids = list(all_events['attachments']['events'].keys())
       event_params = config_subset['event_params']
       event_tabs = config_subset['event_tabs'][sport]
-      list_of_event_dicts = []
       for i in all_event_ids:
         event_output = []
         time.sleep(random.random() * sleep_max)
-        del event_params['eventId']
-        event_params['eventId'] = str(i)
-        main = requests.get(config_subset['event_stem'], params = event_params).json()
-        main['tab_name'] = 'main'
+        event_params.update({'eventId':str(i)})
+        main = requests.get(config_subset['event_stem'], params=event_params).json()
+        main['tab_name'] = 'main-event'
         event_output.append(main)
         for j in event_tabs:
           event_params['tab'] = j
-          tab = requests.get(config_subset['event_stem'], params = event_params).json()
+          tab = requests.get(config_subset['event_stem'], params=event_params).json()
           tab['tab_name'] = j
           event_output.append(tab)
           del event_params['tab'], tab
@@ -97,9 +100,9 @@ class Odds:
         event_output = requests.get(config_subset['event_stem'], params=event_params, headers=config_subset['viable_headers']).json()
         list_of_event_dicts.append(event_output)
     elif self.sportsbook == 'pb':
-      all_events = requests.get(config_subset['all_events_stem']['part1'] + str(config_subset['sport_values'][sport]) + config_subset['all_events_stem']['part2'], params = config_subset['all_events_params'], headers = config_subset['viable_headers']).json()
+      all_events = requests.get(config_subset['all_events_stem']['part1'] + str(config_subset['sport_values'][sport]) + config_subset['all_events_stem']['part2'], params=config_subset['all_events_params'], headers=config_subset['viable_headers']).json()
       all_event_ids = [i['key'] for i in all_events['events']]
-      list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i), headers = config_subset['viable_headers']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
+      list_of_event_dicts = [requests.get(config_subset['event_stem'] + str(i), headers=config_subset['viable_headers']).json() for i in all_event_ids if time.sleep(random.random() * sleep_max) is None]
     else:
       list_of_event_dicts = []
       
@@ -113,14 +116,14 @@ class Odds:
     Args:
       market: str market to parse'''
     
+    # extract some constants from configs that will be used across books
     config_subset = self.config['parse_data']
     market_subset = config_subset['markets'][self.sport][market]
     events_list = self.events_list
     parsed_events = []
-    sportsbook = self.sportsbook
-    if sportsbook == 'br':
+    if self.sportsbook == 'br':
       pass
-    elif sportsbook == 'bs':
+    elif self.sportsbook == 'bs':
       
       def bs_parser(event, market_type, offer_label):
         event_state = event['events'][0]['state']
@@ -139,68 +142,125 @@ class Odds:
           parsed_event = parsed_events.append(bs_parser(i, market_subset['market_type'], market_subset['offer_label']))
         except:
           continue
-    elif sportsbook == 'csr':
+    elif self.sportsbook == 'csr':
       pass
-    elif sportsbook == 'dk':
-      
-      def dk_parser(event, market_type, category_name, subcategory_name):
-        if event['event']['eventStatus']['state'] == 'STARTED':
-          return None
-        else:
+    elif self.sportsbook == 'dk':
+      # pull out some values from the markets
+      category_name = market_subset['category_name']
+      subcategory_name = market_subset['subcategory_name']
+      # loop through all the events
+      for event in events_list:
+        # print(event['event']['name'])
+        # check if it has started, move along if it breaks
+        try:
+          event_start = event['event']['eventStatus']['state'] == 'STARTED'
+        except:
+          continue
+        # if it has started, then move along
+        if event_start:
+          continue
+        # get to parsin' within a try-except block
+        try:
+          ## create an output dict with a few values
           output = {}
           output['event_start'] = event['event']['startDate']
           output['matchup'] = event['event']['name']
-          if market_type == 'prop':
-            category_data = event['eventCategories'][get_list_index(event['eventCategories'], 'name', category_name)]
-            subcategory_data = category_data['componentizedOffers'][get_list_index(category_data['componentizedOffers'], 'subcategoryName', subcategory_name)]
-            # TODO: finding offers like this is gross - two empty lists doesn't feel like its a reproducible pattern. but finding an object named 'offers' does!
-            offers = subcategory_data['offers'][0][0]
-            outcomes = offers['outcomes']
-            output['outcomes'] = offers['outcomes']
-            return output
-          else:
-            return None
-
-      for i in events_list:
-        try:
-          parsed_event = parsed_events.append(dk_parser(i, market_subset['market_type'], market_subset['category_name'], market_subset['subcategory_name']))
+          ## extract the correct category and subcategory info
+          category_data = event['eventCategories'][get_list_index(event['eventCategories'], 'name', category_name)]
+          subcategory_data = category_data['componentizedOffers'][get_list_index(category_data['componentizedOffers'], 'subcategoryName', subcategory_name)]
+          # TODO: finding offers like this is gross - two empty lists doesn't feel like its a reproducible pattern. but finding an object named 'offers' does!
+          offers = subcategory_data['offers'][0][0]
+          outcomes = offers['outcomes']
+          output['outcomes'] = offers['outcomes']
+          parsed_events.append(output)
         except:
           continue
-    elif sportsbook == 'fd':
-      
-      def fd_parser(event, market_type, tab_name, market_name):
-        event_id = list(event[0]['attachments']['events'].keys())[0]
-        if event[0]['attachments']['events'][event_id]['inPlay'] == True:
-          return None
+    elif self.sportsbook == 'fd':
+      # loop through the events in the events_list
+      for event in events_list:
         output = {}
-        output['event_start'] = event[0]['attachments']['events'][event_id]['openDate']
-        output['matchup'] = event[0]['attachments']['events'][event_id]['name']
-        if market_type == 'prop':
-          tab_markets = event[get_list_index(event, 'tab_name', tab_name)]['attachments']['markets'].values()
-          for market in tab_markets:
-            if market['marketName'] != market_name:
-              continue
-            elif market['marketStatus'] != 'OPEN':
-              continue
+        # if there's a tab_name, get the market from that tab
+        if 'tab_name' in market_subset.keys():
+          try:
+            # find the markets if the event is a list or dict
+            if isinstance(event, list):
+              tab_markets = event[get_list_index(event, 'tab_name', market_subset['tab_name'])]['attachments']['markets']
+            elif isinstance(event, dict):
+              tab_markets = event['attachments']['markets']
             else:
-              output['outcomes'] = market['runners']
-          
-          return output
-
-      for i in events_list:
-        try:
-          parsed_event = parsed_events.append(fd_parser(i, market_subset['market_type'], market_subset['tab_name'], market_subset['market_name']))
-        except:
+              continue
+          except:
+            continue
+        else:
+          try:
+            # if there isn't a tab name, then just get the markets (it oughta just be a dict)
+            tab_markets = event['attachments']['markets']
+          except:
+            continue
+        # loop through the markets in the tab
+        if tab_markets == {}:
           continue
-    elif sportsbook == 'mgm':
+        for tab_market in tab_markets:
+          try:
+            # get the market dict
+            tm_dict = tab_markets[tab_market]
+            # check if the market name matches exactly if we need it to
+            tm_dict_name = tm_dict['marketName']
+            if 'market_name' in market_subset.keys():
+              # if not an exact match move on
+              if tm_dict_name != market_subset['market_name']:
+                continue
+              else:
+                output['outcomes'] = tm_dict
+            # otherwise see if its a regex
+            elif 'market_regex' in market_subset.keys():
+              # if the market name doesn't hit the regex move on
+              if re.search(market_subset['market_regex'], tm_dict_name) is None:
+                continue
+              else:
+                output['outcomes'] = tm_dict
+            else:
+              continue
+          except:
+            continue
+        # extract some info about events based on market_type
+        #### TODO: HANDLE THE DIFFERENT WAYS THIS SHIT GETS PARSED OUT, SOMEHOW
+        if market_subset['market_type'] == 'future':
+          output['event_start'] = None
+          output['name'] = None
+        elif isinstance(event, list):
+          try:
+            event_data = event[0]['attachments']['events']
+            output['event_start'] = event_data[list(event_data.keys())[0]]['openDate']
+            output['name'] = event_data[list(event_data.keys())[0]]['name']
+          except:
+            pass
+        elif isinstance(event, dict):
+          try:
+            if len(event['attachments']['events'].keys()) == 1:
+              event_data = event[list(event.keys())[0]]['attachments']['events']
+              output['event_start'] = event_data[list(event_data.keys())[0]]['openDate']
+              output['name'] = event_data[list(event_data.keys())[0]]['name']
+            else:
+              pass
+          except:
+            pass
+        else:
+          pass
+        # return that output object
+        parsed_events.append(output)
+
+    elif self.sportsbook == 'mgm':
       pass
-    elif sportsbook == 'pb':
+    elif self.sportsbook == 'pb':
       pass
     else:
       parsed_events = []
-    
-    self.market = market
-    self.parsed_events = [i for i in parsed_events if i is not None]
+    # check if there are already parsed events; if there aren't, create the dict
+    if not hasattr(self, 'parsed_events'):
+      self.parsed_events = {}
+    # create a new attribute of the parsed_events dict for the market
+    self.parsed_events[market] = [i for i in parsed_events if i is not None and i != {}]
     
     return self
   
