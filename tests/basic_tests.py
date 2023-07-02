@@ -9,31 +9,37 @@ with open(cfg_pth) as f:
 # works locally :)
 try:
   bs_obj = Odds.Odds('bs', config=cfg).get_data('mlb')
+  print('bs worked')
 except:
   print('died at bs')
   
 try:
   csr_obj = Odds.Odds('csr', config=cfg).get_data('mlb')
+  print('csr worked')
 except:
   print('died at csr')
   
 try:
   dk_obj = Odds.Odds('dk', config=cfg).get_data('wnba')
+  print('dk worked')
 except:
   print('died at dk')
 
 try:
   fd_obj = Odds.Odds('fd', config=cfg).get_data('wnba')
+  print('fd worked')
 except:
   print('died at fd')
 
 try:
   mgm_obj = Odds.Odds('mgm', config=cfg).get_data('mlb')
+  print('mgm worked')
 except:
   print('died at mgm')
 
 try:
   pb_obj = Odds.Odds('pb', config=cfg).get_data('mlb')
+  print('pb worked')
 except:
   print('died at pb')
 
