@@ -9,10 +9,12 @@ def get_list_index(LIST, key, val):
   return next((index for (index, d) in enumerate(LIST) if d[key] == val), None)
 
 
-
+import re
 sport='mlb'
-config_subset=cfg['fd']['parse_data']
+config_subset=cfg['bs']['parse_data']
 market_subset=config_subset['markets']['mlb']['home_runs']
+event=bs_obj.events_list[3]
+
 nba = Odds.Odds('fd', config=cfg).get_data('nba').parse_data('nba_finals')
 mlb = Odds.Odds('fd', config=cfg).get_data('mlb')
 test=Odds.Odds('fd', config=cfg).get_data('mlb').parse_data('home_runs')

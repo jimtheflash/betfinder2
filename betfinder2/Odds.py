@@ -1,7 +1,9 @@
 import random, re, requests, time
 import polars as pl
 
-# TODO: figure out wtf this function is doing and why it needs to exist :facepalm:
+## TODO: in cases where this function is necessary, coerce the object to a dict beforehand, then we don't need this function anymore
+## this function exists cuz initially i treated python lists like r lists, when in fact a python dict is more akin to an r list. 
+## ok we figured out what it does and why (when a list should be a dict cuz we want to access indices by names, this enables it, but really that means our lists should be dicts in most cases)
 def get_list_index(LIST, key, val):
   '''Get index or indices of list elements when those elements are dicts with keys containing values matching the val
   Args:
@@ -124,24 +126,22 @@ class Odds:
     if self.sportsbook == 'br':
       pass
     elif self.sportsbook == 'bs':
+      for event in events_list:
+          # if there's a specific label to get, do that, else use regex
+          if 'offer_label' in market_subset.keys():
+            try:
+              selected_offer = [i for i in event['betOffers'] if i['criterion']['label'] == market_subset['offer_label']]
+            except:
+              continue
+          elif 'offer_regex' in market_subset.keys():
+            try:
+              selected_offer = [i for i in event['betOffers'] if re.search(pattern=market_subset['offer_regex'], string=i['criterion']['label']) is not None]
+            except:
+              continue
+          else:
+            continue
+          parsed_events.append(selected_offer)
       
-      def bs_parser(event, market_type, offer_label):
-        event_state = event['events'][0]['state']
-        if event_state == 'STARTED':
-          return None
-        output = {}
-        output['event_start'] = event['events'][0]['start']
-        output['matchup'] = event['events'][0]['name']
-        if market_type == 'prop':
-          selected_offer = [i for i in event['betOffers'] if i['criterion']['label'] == offer_label]
-          output['outcomes'] = selected_offer[0]['outcomes']
-          return output
-      
-      for i in events_list:
-        try:
-          parsed_event = parsed_events.append(bs_parser(i, market_subset['market_type'], market_subset['offer_label']))
-        except:
-          continue
     elif self.sportsbook == 'csr':
       pass
     elif self.sportsbook == 'dk':
@@ -249,7 +249,6 @@ class Odds:
           pass
         # return that output object
         parsed_events.append(output)
-
     elif self.sportsbook == 'mgm':
       pass
     elif self.sportsbook == 'pb':
@@ -260,9 +259,8 @@ class Odds:
     if not hasattr(self, 'parsed_events'):
       self.parsed_events = {}
     # create a new attribute of the parsed_events dict for the market
-    self.parsed_events[market] = [i for i in parsed_events if i is not None and i != {}]
-    
-    return self
+    self.parsed_events[market] = [i for i in parsed_events if i is not None and i != {} and i != []]
+    return(self)
   
   def tidy_df(self):
     '''tidy_df extracts the relevant fields from the parsed events and renames them to be consistent across books, and generates a dataFrame with the following columns:
